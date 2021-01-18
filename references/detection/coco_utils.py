@@ -48,8 +48,8 @@ def convert_coco_poly_to_mask(segmentations, height, width):
 
 
 class ConvertCocoPolysToMask(object):
-    def __init__(self, Masks=True):
-        self.masks = Masks
+    def __init__(self, masks=True):
+        self.masks = masks
 
     def __call__(self, image, target):
         w, h = image.size
@@ -116,7 +116,7 @@ def _coco_remove_images_without_annotations(dataset, cat_list=None):
     def _count_visible_keypoints(anno):
         return sum(sum(1 for v in ann["keypoints"][2::3] if v > 0) for ann in anno)
 
-    min_keypoints_per_image = 10
+    min_keypoints_per_image = 2
 
     def _has_valid_annotation(anno):
         # if it's empty, there is no annotation
@@ -245,15 +245,13 @@ def get_coco(root, image_set, transforms, mode='instances'):
     ann_file = os.path.join(root, ann_file)
 
     dataset = CocoDetection(img_folder, ann_file, transforms=transforms)
-
     if image_set == "train":
         dataset = _coco_remove_images_without_annotations(dataset)
-
     # dataset = torch.utils.data.Subset(dataset, [i for i in range(500)])
 
     return dataset
 
-def get_forklift(root, image_set, transforms, mode='instances'):
+def get_forklift(root, image_set, transforms, mode='instances', masks=False):
     anno_file_template = "{}_{}2017.json"
     PATHS = {
         "train": ("train2017", os.path.join("annotations", anno_file_template.format(mode, "train"))),
@@ -261,7 +259,7 @@ def get_forklift(root, image_set, transforms, mode='instances'):
         # "train": ("val2017", os.path.join("annotations", anno_file_template.format(mode, "val")))
     }
 
-    t = [ConvertCocoPolysToMask(Masks=False)]
+    t = [ConvertCocoPolysToMask(masks=masks)]
 
     if transforms is not None:
         t.append(transforms)
@@ -270,16 +268,19 @@ def get_forklift(root, image_set, transforms, mode='instances'):
     img_folder, ann_file = PATHS[image_set]
     img_folder = os.path.join(root, img_folder)
     ann_file = os.path.join(root, ann_file)
-
     dataset = CocoDetection(img_folder, ann_file, transforms=transforms)
 
-    if image_set == "train":
-        dataset = _coco_remove_images_without_annotations(dataset)
+    # if image_set == "train":
+
+    dataset = _coco_remove_images_without_annotations(dataset)
+
 
     # dataset = torch.utils.data.Subset(dataset, [i for i in range(500)])
 
     return dataset
 
+def get_forklift_kp(root, image_set, transforms):
+    return get_forklift(root, image_set, transforms, mode="forklift_keypoints", masks=True)
 
 def get_coco_kp(root, image_set, transforms):
-    return get_coco(root, image_set, transforms, mode="person_keypoints")
+    return get_coco(root, image_set, transforms, mode="forklift_keypoints")

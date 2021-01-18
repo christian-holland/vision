@@ -27,7 +27,7 @@ import torchvision
 import torchvision.models.detection
 import torchvision.models.detection.mask_rcnn
 
-from coco_utils import get_coco, get_coco_kp, get_forklift
+from coco_utils import get_coco, get_coco_kp, get_forklift, get_forklift_kp
 # from transforms import get_transform
 from group_by_aspect_ratio import GroupedBatchSampler, create_aspect_ratio_groups
 from engine import train_one_epoch, evaluate
@@ -48,7 +48,8 @@ def get_dataset(name, image_set, transform, data_path):
     paths = {
         "coco": (data_path, get_coco, 91),
         "coco_kp": (data_path, get_coco_kp, 2),
-        "forklift": (data_path, get_forklift, 3)
+        "forklift": (data_path, get_forklift, 3),
+        "forklift_kp": (data_path, get_forklift_kp, 2)
     }
     p, ds_fn, num_classes = paths[name]
 
@@ -97,6 +98,8 @@ def main(args):
 
     print("Creating model")
     kwargs = {}
+    if "keypoint" in args.model:
+        kwargs["num_keypoints"] = 6
     # if "rcnn" in args.model:
     #     kwargs["rpn_score_thresh"] = 0.0
     model = torchvision.models.detection.__dict__[args.model](num_classes=num_classes, pretrained=args.pretrained,
@@ -140,7 +143,7 @@ def main(args):
                 'lr_scheduler': lr_scheduler.state_dict(),
                 'args': args,
                 'epoch': epoch},
-                os.path.join(args.output_dir, 'model.pth'))
+                os.path.join(args.output_dir, 'model77.pth'))
 
         # evaluate after every epoch
         evaluate(model, data_loader_test, device=device)
@@ -156,12 +159,12 @@ if __name__ == "__main__":
         description=__doc__)
 
     parser.add_argument('--data-path', default='/datasets01/COCO/022719/', help='dataset')
-    parser.add_argument('--dataset', default='forklift', help='dataset')
+    parser.add_argument('--dataset', default='forklift_kp', help='dataset')
     parser.add_argument('--model', default='maskrcnn_resnet50_fpn', help='model')
     parser.add_argument('--device', default='cuda', help='device')
     parser.add_argument('-b', '--batch-size', default=4, type=int,
                         help='images per gpu, the total batch size is $NGPU x batch_size')
-    parser.add_argument('--epochs', default=50, type=int, metavar='N',
+    parser.add_argument('--epochs', default=200, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                         help='number of data loading workers (default: 4)')

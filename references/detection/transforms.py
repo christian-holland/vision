@@ -20,6 +20,14 @@ def _flip_coco_person_keypoints(kps, width):
     flipped_data[inds] = 0
     return flipped_data
 
+def _flip_forklift_keypoints(kps, width):
+    flip_inds = [1, 0, 3, 2, 5, 4]
+    flipped_data = kps[:, flip_inds]
+    flipped_data[..., 0] = width - flipped_data[..., 0]
+    # Maintain COCO convention that if visibility == 0, then x, y = 0
+    inds = flipped_data[..., 2] == 0
+    flipped_data[inds] = 0
+    return flipped_data
 
 class Compose(object):
     def __init__(self, transforms):
@@ -46,7 +54,7 @@ class RandomHorizontalFlip(object):
                 target["masks"] = target["masks"].flip(-1)
             if "keypoints" in target:
                 keypoints = target["keypoints"]
-                keypoints = _flip_coco_person_keypoints(keypoints, width)
+                keypoints = _flip_forklift_keypoints(keypoints, width)
                 target["keypoints"] = keypoints
         return image, target
 
