@@ -28,7 +28,7 @@ import torchvision.models.detection
 import torchvision.models.detection.mask_rcnn
 
 from coco_utils import get_coco, get_coco_kp, get_forklift, get_forklift_kp
-# from transforms import get_transform
+from transforms import AlbumentationTransforms
 from group_by_aspect_ratio import GroupedBatchSampler, create_aspect_ratio_groups
 from engine import train_one_epoch, evaluate
 
@@ -37,11 +37,17 @@ import transforms as T
 
 
 def get_transform(train):
-    transforms = []
-    transforms.append(T.ToTensor())
     if train:
-        transforms.append(T.RandomHorizontalFlip(0.5))
-    return T.Compose(transforms)
+        return T.Compose([
+            # AlbumentationTransforms(),
+            T.ToTensor(),
+            T.RandomHorizontalFlip(0.5),
+        ])
+    else:
+        return T.Compose([
+            T.ToTensor()
+        ])
+
 
 
 def get_dataset(name, image_set, transform, data_path):
@@ -70,8 +76,11 @@ def main(args):
     print("Loading data")
 
     dataset, num_classes = get_dataset(args.dataset, "train", get_transform(train=True), args.data_path)
-    dataset_test, _ = get_dataset(args.dataset, "val", get_transform(train=False), args.data_path)
-
+    # dataset_test, _ = get_dataset(args.dataset, "val", get_transform(train=False), args.data_path)
+    train_l = int(len(dataset)*0.8)
+    torch.manual_seed(0)
+    dataset, dataset_test= torch.utils.data.random_split(dataset, [train_l, len(dataset) - train_l])
+    torch.manual_seed(torch.initial_seed())
     print("Creating data loaders")
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(dataset)
@@ -143,7 +152,7 @@ def main(args):
                 'lr_scheduler': lr_scheduler.state_dict(),
                 'args': args,
                 'epoch': epoch},
-                os.path.join(args.output_dir, 'model77.pth'))
+                os.path.join(args.output_dir, 'model.pth'))
 
         # evaluate after every epoch
         evaluate(model, data_loader_test, device=device)
@@ -164,11 +173,11 @@ if __name__ == "__main__":
     parser.add_argument('--device', default='cuda', help='device')
     parser.add_argument('-b', '--batch-size', default=4, type=int,
                         help='images per gpu, the total batch size is $NGPU x batch_size')
-    parser.add_argument('--epochs', default=200, type=int, metavar='N',
+    parser.add_argument('--epochs', default=100, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                         help='number of data loading workers (default: 4)')
-    parser.add_argument('--lr', default=0.0025, type=float,
+    parser.add_argument('--lr', default=0.001, type=float,
                         help='initial learning rate, 0.02 is the default value for training '
                         'on 8 gpus and 2 images_per_gpu')
     parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
@@ -177,7 +186,7 @@ if __name__ == "__main__":
                         metavar='W', help='weight decay (default: 1e-4)',
                         dest='weight_decay')
     parser.add_argument('--lr-step-size', default=8, type=int, help='decrease lr every step-size epochs')
-    parser.add_argument('--lr-steps', default=[44, 48], nargs='+', type=int, help='decrease lr every step-size epochs')
+    parser.add_argument('--lr-steps', default=[95, 98], nargs='+', type=int, help='decrease lr every step-size epochs')
     parser.add_argument('--lr-gamma', default=0.1, type=float, help='decrease lr by a factor of lr-gamma')
     parser.add_argument('--print-freq', default=20, type=int, help='print frequency')
     parser.add_argument('--output-dir', default='.', help='path where to save')
