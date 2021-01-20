@@ -170,9 +170,9 @@ def main(args):
         bb_stats = eval_res.coco_eval["bbox"].stats
         kp_stats = eval_res.coco_eval["keypoints"].stats
         for i in range(3):
-            val_writer.add_scalar("summary/{}".format(stat_types[i]),bb_stats[i], epoch)
+            val_writer.add_scalar("summary/bbox/{}".format(stat_types[i]),bb_stats[i], epoch)
             if "keypoint" in args.model:
-                val_writer.add_scalar("summary/{}".format(stat_types[i]), kp_stats[i], epoch)
+                val_writer.add_scalar("summary/keypoints/{}".format(stat_types[i]), kp_stats[i], epoch)
 
 
     total_time = time.time() - start_time
