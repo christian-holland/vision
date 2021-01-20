@@ -20,12 +20,14 @@ the number of epochs should be adapted so that we have the same number of iterat
 import datetime
 import os
 import time
+from datetime import datetime
 
 import torch
 import torch.utils.data
 import torchvision
 import torchvision.models.detection
 import torchvision.models.detection.mask_rcnn
+from torch.utils.tensorboard import SummaryWriter
 
 from coco_utils import get_coco, get_coco_kp, get_forklift, get_forklift_kp
 from transforms import AlbumentationTransforms
@@ -76,11 +78,13 @@ def main(args):
     print("Loading data")
 
     dataset, num_classes = get_dataset(args.dataset, "train", get_transform(train=True), args.data_path)
-    # dataset_test, _ = get_dataset(args.dataset, "val", get_transform(train=False), args.data_path)
-    train_l = int(len(dataset)*0.8)
-    torch.manual_seed(0)
-    dataset, dataset_test= torch.utils.data.random_split(dataset, [train_l, len(dataset) - train_l])
-    torch.manual_seed(torch.initial_seed())
+    dataset_test, _ = get_dataset(args.dataset, "val", get_transform(train=False), args.data_path)
+
+    # train_l = int(len(dataset)*0.8)
+    # torch.manual_seed(0)
+    # dataset, dataset_test= torch.utils.data.random_split(dataset, [train_l, len(dataset) - train_l])
+    # torch.manual_seed(torch.initial_seed())
+
     print("Creating data loaders")
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(dataset)
@@ -138,6 +142,12 @@ def main(args):
         evaluate(model, data_loader_test, device=device)
         return
 
+    now = datetime.now()
+    train_run_folder = "runs/{}".format(now.strftime("%Y_%M_%S %H:%M:%S"))
+    os.makedirs(train_run_folder)
+    # train_writer = SummaryWriter(os.path.join(train_run_folder, "train"))
+    val_writer = SummaryWriter(os.path.join(train_run_folder, "val"))
+
     print("Start training")
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
@@ -152,10 +162,18 @@ def main(args):
                 'lr_scheduler': lr_scheduler.state_dict(),
                 'args': args,
                 'epoch': epoch},
-                os.path.join(args.output_dir, 'model.pth'))
+                os.path.join(args.output_dir, os.path.join(train_run_folder, "model.pth")))
 
         # evaluate after every epoch
-        evaluate(model, data_loader_test, device=device)
+        eval_res = evaluate(model, data_loader_test, device=device)
+        stat_types = ["AP 0.5:0.95", "AP 0.50", "AP 0.75"]
+        bb_stats = eval_res.coco_eval["bbox"].stats
+        kp_stats = eval_res.coco_eval["keypoints"].stats
+        for i in range(3):
+            val_writer.add_scalar("summary/{}".format(stat_types[i]),bb_stats[i], epoch)
+            if "keypoint" in args.model:
+                val_writer.add_scalar("summary/{}".format(stat_types[i]), kp_stats[i], epoch)
+
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
