@@ -151,7 +151,7 @@ def _read_from_stream(
     start_offset: float,
     end_offset: float,
     pts_unit: str,
-    stream: "av.stream.Stream",
+    stream: "av.cuda_stream.Stream",
     stream_name: Dict[str, Optional[Union[int, Tuple[int, ...], List[int]]]],
 ) -> List["av.frame.Frame"]:
     global _CALLED_TIMES, _GC_COLLECTION_INTERVAL

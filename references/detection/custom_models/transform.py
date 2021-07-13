@@ -177,12 +177,14 @@ class GeneralizedRCNNTransform(nn.Module):
         # pad_img[: img.shape[0], : img.shape[1], : img.shape[2]].copy_(img)
         # which is not yet supported in onnx
         padded_imgs = []
-        for img in images:
-            padding = [(s1 - s2) for s1, s2 in zip(max_size, tuple(img.shape))]
-            padded_img = torch.nn.functional.pad(img, (0, padding[2], 0, padding[1], 0, padding[0]))
-            padded_imgs.append(padded_img)
 
-        return torch.stack(padded_imgs)
+        return torch.stack(images)
+        # for img in images:
+        #     padding = [(s1 - s2) for s1, s2 in zip(max_size, tuple(img.shape))]
+        #     padded_img = torch.nn.functional.pad(img, (0, padding[2], 0, padding[1], 0, padding[0]))
+        #     padded_imgs.append(padded_img)
+        #
+        # return torch.stack(padded_imgs)
 
     def max_by_axis(self, the_list):
         # type: (List[List[int]]) -> List[int]

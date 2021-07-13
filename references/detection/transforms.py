@@ -5,10 +5,14 @@ from torchvision.transforms import functional as F
 import albumentations as A
 import numpy as np
 import cv2
+from albumentations.pytorch.transforms import ToTensor
+
+from constanz import NUM_KPS, DATASET
 
 def get_transform(train):
     transforms = []
-    transforms.append(T.ToTensor())
+    # transforms.append(ToTensor(normalize = {"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]}))
+    # transforms.append(T.ToTensor())
     if train:
         transforms.append(T.RandomHorizontalFlip(0.5))
     return T.Compose(transforms)
@@ -26,6 +30,14 @@ def _flip_coco_person_keypoints(kps, width):
 def _flip_forklift_keypoints(kps, width):
     flip_inds = [1, 0, 3, 2, 5, 4]
     flipped_data = kps[:, flip_inds]
+    flipped_data[..., 0] = width - flipped_data[..., 0]
+    # Maintain COCO convention that if visibility == 0, then x, y = 0
+    inds = flipped_data[..., 2] == 0
+    flipped_data[inds] = 0
+    return flipped_data
+
+def _flip_box_keypoints(kps, width):
+    flipped_data = kps
     flipped_data[..., 0] = width - flipped_data[..., 0]
     # Maintain COCO convention that if visibility == 0, then x, y = 0
     inds = flipped_data[..., 2] == 0
@@ -57,7 +69,10 @@ class RandomHorizontalFlip(object):
                 target["masks"] = target["masks"].flip(-1)
             if "keypoints" in target:
                 keypoints = target["keypoints"]
-                keypoints = _flip_forklift_keypoints(keypoints, width)
+                if DATASET == "box":
+                    keypoints = _flip_box_keypoints(keypoints, width)
+                else:
+                    keypoints = _flip_forklift_keypoints(keypoints, width)
                 target["keypoints"] = keypoints
         return image, target
 
@@ -85,7 +100,7 @@ def prepare_annotations(keypoints):
 def unprepare_annotations(keypoints, masks, labels, kp_id,
                           instance_id):
     masks = np.array(masks)
-    num_kps = 6
+    num_kps = NUM_KPS
     num_instances = labels.shape[0]
     kps_serial = np.zeros((num_instances, num_kps, 3), dtype=np.float)
     for i in range(len(keypoints)):
@@ -140,14 +155,55 @@ class AlbumentationTransforms(object):
         # import copy
         # from debug_utils import vis, visualize_bbox
         # before_labels = copy.deepcopy(labels)
-        # before_bboxes = copy.deepcopy(bboxes)
+        # before_bboxes = copy.deepcopy(target["boxes"])
         # before = vis(image, keypoints)
 
         transform = A.Compose(
-            [   # A.imgaug.transforms.IAAPerspective(scale=(0.00, 0.05), keep_size=True, always_apply=False, p=0.5),
-                # A.imgaug.transforms.IAAAffine(translate_percent=(-0.1, 0.1), mode="constant", p=0.5),
-                A.Rotate(limit=180, p=1., border_mode=cv2.BORDER_CONSTANT),
+            [   #A.imgaug.transforms.IAAPerspective(scale=(0.00, 0.1), keep_size=True, always_apply=False, p=0.5),
+                #A.imgaug.transforms.IAAAffine(translate_percent=(-0.1, 0.1),  mode="constant", p=0.5),
+                # A.imgaug.transforms.IAAAffine(shear=20,  mode="constant", p=1.),
+                #A.Rotate(limit=5, p=1., border_mode=cv2.BORDER_CONSTANT),
+                A.augmentations.transforms.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.1, rotate_limit=5, border_mode=cv2.BORDER_CONSTANT, p=1.),
+                A.Rotate(limit=180, p=0.5, border_mode=cv2.BORDER_CONSTANT),
                 # A.RandomResizedCrop(h, w, scale=(0.8, 1.0), ratio=(w/float(h), w/float(h)), p=0.5),
+                # A.OneOf(
+                #     [
+                #         A.RandomBrightnessContrast(
+                #             brightness_limit=0.2,
+                #             contrast_limit=0.2,
+                #         ),
+                #         A.HueSaturationValue(
+                #             hue_shift_limit=20, sat_shift_limit=50, val_shift_limit=50
+                #         ),
+                #     ],
+                #     p=0.5,
+                # ),
+                # A.OneOf(
+                #     [
+                #         A.IAAAdditiveGaussianNoise(),
+                #         A.GaussNoise(),
+                #     ],
+                #     p=0.5,
+                # ),
+                # A.CoarseDropout(max_holes=30, p=0.5),
+                # A.OneOf(
+                #     [
+                #         A.MotionBlur(p=0.2),
+                #         A.MedianBlur(blur_limit=3, p=0.1),
+                #         A.Blur(blur_limit=3, p=0.1),
+                #     ],
+                #     p=0.5,
+                # ),
+                # A.OneOf(
+                #     [
+                #         # A.OpticalDistortion(p=0.3),
+                #         A.GridDistortion(p=0.1),
+                #         A.IAAPiecewiseAffine(p=0.3),
+                #         # A.IAAPerspective(p=0.3)
+                #     ],
+                #     p=0.5,
+                # ),
+            # ToTensor(normalize = {"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]}),
             ],
             keypoint_params=A.KeypointParams(format='xy',
                                              label_fields=["kp_id",

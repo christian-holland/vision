@@ -4,7 +4,7 @@ from torch.nn import functional as F
 from torch import nn, Tensor
 
 import torchvision
-from torchvision.ops import boxes as box_ops
+from . import boxes as box_ops
 
 import custom_models.det_utils as det_utils
 from .image_list import ImageList
@@ -219,6 +219,7 @@ class RegionProposalNetwork(torch.nn.Module):
         for ob in objectness.split(num_anchors_per_level, 1):
             if torchvision._is_tracing():
                 num_anchors, pre_nms_top_n = _onnx_get_num_anchors_and_pre_nms_top_n(ob, self.pre_nms_top_n())
+                pre_nms_top_n = int(pre_nms_top_n)
             else:
                 num_anchors = ob.shape[1]
                 pre_nms_top_n = min(self.pre_nms_top_n(), num_anchors)
@@ -248,36 +249,43 @@ class RegionProposalNetwork(torch.nn.Module):
         image_range = torch.arange(num_images, device=device)
         batch_idx = image_range[:, None]
 
-        objectness = objectness[batch_idx, top_n_idx]
-        levels = levels[batch_idx, top_n_idx]
-        proposals = proposals[batch_idx, top_n_idx]
+        objectness = objectness.index_select(0, batch_idx[0]).index_select(1, top_n_idx[0])
+        levels = levels.index_select(0, batch_idx[0]).index_select(1, top_n_idx[0])
+        proposals = proposals.index_select(0, batch_idx[0]).index_select(1, top_n_idx[0])
+
+        #objectness = objectness[batch_idx, top_n_idx]
+        #levels = levels[batch_idx, top_n_idx]
+        #proposals = proposals[batch_idx, top_n_idx]
 
         objectness_prob = F.sigmoid(objectness)
 
         final_boxes = []
         final_scores = []
-        for boxes, scores, lvl, img_shape in zip(proposals, objectness_prob, levels, image_shapes):
-            boxes = box_ops.clip_boxes_to_image(boxes, img_shape)
 
-            # remove small boxes
-            keep = box_ops.remove_small_boxes(boxes, self.min_size)
-            boxes, scores, lvl = boxes[keep], scores[keep], lvl[keep]
-
-            # remove low scoring boxes
-            # use >= for Backwards compatibility
-            keep = torch.where(scores >= self.score_thresh)[0]
-            boxes, scores, lvl = boxes[keep], scores[keep], lvl[keep]
-
-            # non-maximum suppression, independently done per level
-            keep = box_ops.batched_nms(boxes, scores, lvl, self.nms_thresh)
-
-            # keep only topk scoring predictions
-            keep = keep[:self.post_nms_top_n()]
-            boxes, scores = boxes[keep], scores[keep]
-
-            final_boxes.append(boxes)
-            final_scores.append(scores)
-        return final_boxes, final_scores
+        return [prop for prop in proposals], [ob for ob in objectness_prob]
+        # for boxes, scores, lvl, img_shape in zip(proposals, objectness_prob, levels, image_shapes):
+        #     boxes = box_ops.clip_boxes_to_image(boxes, img_shape)
+        #
+        #     # remove small boxes
+        #     keep = box_ops.remove_small_boxes(boxes, self.min_size)
+        #     # keep = boxes
+        #     boxes, scores, lvl = boxes[keep], scores[keep], lvl[keep]
+        #
+        #     # remove low scoring boxes
+        #     # use >= for Backwards compatibility
+        #     keep = torch.where(scores >= self.score_thresh)[0]
+        #     boxes, scores, lvl = boxes[keep], scores[keep], lvl[keep]
+        #
+        #     # non-maximum suppression, independently done per level
+        #     keep = box_ops.batched_nms(boxes, scores, lvl, self.nms_thresh)
+        #
+        #     # keep only topk scoring predictions
+        #     keep = keep[:self.post_nms_top_n()]
+        #     boxes, scores = boxes[keep], scores[keep]
+        #
+        #     final_boxes.append(boxes)
+        #     final_scores.append(scores)
+        # return final_boxes, final_scores
 
     def compute_loss(self, objectness, pred_bbox_deltas, labels, regression_targets):
         # type: (Tensor, Tensor, List[Tensor], List[Tensor]) -> Tuple[Tensor, Tensor]

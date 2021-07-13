@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 kp_map = ["RL", "RR", "FL", "FR", "LL", "LR"]
-min_score = 15
+
 
 def name_to_color(name):
     color = abs(hash(name))
@@ -15,11 +15,12 @@ def draw_coco_box(image, bb, instance_type):
     image = cv2.rectangle(*args)
     return image
 
-def draw_kps(image, keypoints, scores):
+def draw_kps(image, keypoints, scores, min_score):
     keypoints = keypoints.long()
     keypoints = [tuple(list(kps)) for kps in keypoints]
     print("scores", [float(score) for score in scores])
     for kp, score, text in zip(keypoints, scores, kp_map):
+        text = "{:.0f}".format(score)
         if score > min_score:
             image = cv2.circle(image, kp , radius=0, color=(0 , 0, 255), thickness=7)
             image = write(image, kp, text)

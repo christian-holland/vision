@@ -8,6 +8,7 @@ from collections import defaultdict
 import copy
 __author__ = 'tsungyi'
 
+from constanz import NUM_KPS
 import pycocotools._mask as _mask
 
 # Interface for manipulating masks stored in RLE format.
@@ -624,7 +625,7 @@ class Params:
         self.areaRngLbl = ['all', 'medium', 'large']
         self.useCats = 1
         # self.kpt_oks_sigmas = np.array([.26, .25, .25, .35, .35, .79, .79, .72, .72, .62,.62, 1.07, 1.07, .87, .87, .89, .89])/10.0
-        self.kpt_oks_sigmas = np.array([.50] * 6)/10.0
+        self.kpt_oks_sigmas = np.array([.50] * NUM_KPS) / 10.0
 
     def __init__(self, iouType='segm'):
         if iouType == 'segm' or iouType == 'bbox':

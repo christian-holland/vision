@@ -8,7 +8,7 @@ from torchvision.ops import boxes as box_ops
 
 from torchvision.ops import roi_align
 
-from . import _utils as det_utils
+import utils2 as det_utils
 
 from typing import Optional, List, Dict, Tuple
 

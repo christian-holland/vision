@@ -7,15 +7,17 @@ import torch.nn.functional as F
 from torchvision.ops import misc as misc_nn_ops
 from torchvision.ops import MultiScaleRoIAlign
 
-from ._utils import overwrite_eps
-from ..utils import load_state_dict_from_url
+from _utils import overwrite_eps
+from torchvision.models.utils import load_state_dict_from_url
 
-from .anchor_utils import AnchorGenerator
-from .generalized_rcnn import GeneralizedRCNN
-from .rpn import RPNHead, RegionProposalNetwork
-from .roi_heads import RoIHeads
-from .transform import GeneralizedRCNNTransform
-from .backbone_utils import resnet_fpn_backbone, _validate_resnet_trainable_layers
+from anchor_utils import AnchorGenerator
+from generalized_rcnn import GeneralizedRCNN
+from rpn import RPNHead, RegionProposalNetwork
+from roi_heads import RoIHeads
+
+from transform import GeneralizedRCNNTransform
+from backbone_utils import resnet_fpn_backbone, _validate_resnet_trainable_layers
+
 
 
 __all__ = [

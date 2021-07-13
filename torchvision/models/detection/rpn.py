@@ -6,13 +6,13 @@ from torch import nn, Tensor
 import torchvision
 from torchvision.ops import boxes as box_ops
 
-from . import _utils as det_utils
-from .image_list import ImageList
+import utils2 as det_utils
+from image_list import ImageList
 
 from typing import List, Optional, Dict, Tuple
 
 # Import AnchorGenerator to keep compatibility.
-from .anchor_utils import AnchorGenerator
+from anchor_utils import AnchorGenerator
 
 
 @torch.jit.unused

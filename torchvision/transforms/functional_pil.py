@@ -273,7 +273,7 @@ def rotate(img, angle, interpolation=0, expand=False, center=None, fill=None):
         raise TypeError("img should be PIL Image. Got {}".format(type(img)))
 
     opts = _parse_fill(fill, img, '5.2.0')
-    return img.rotate(angle, interpolation, expand, center, **opts)
+    return img.rotate_point2d(angle, interpolation, expand, center, **opts)
 
 
 @torch.jit.unused

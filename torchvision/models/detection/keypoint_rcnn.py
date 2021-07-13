@@ -1,19 +1,33 @@
 import torch
 from torch import nn
-
 from torchvision.ops import MultiScaleRoIAlign
+from torchvision.models.utils import load_state_dict_from_url
+# from torchvision.models._utils import overwrite_eps
+from torchvision.ops.misc import FrozenBatchNorm2d
 
-from ._utils import overwrite_eps
-from ..utils import load_state_dict_from_url
-
-from .faster_rcnn import FasterRCNN
-from .backbone_utils import resnet_fpn_backbone, _validate_resnet_trainable_layers
-
+from faster_rcnn import FasterRCNN
+from backbone_utils import resnet_fpn_backbone, _validate_resnet_trainable_layers
 
 __all__ = [
     "KeypointRCNN", "keypointrcnn_resnet50_fpn"
 ]
 
+def overwrite_eps(model, eps):
+    """
+    This method overwrites the default eps values of all the
+    FrozenBatchNorm2d layers of the model with the provided value.
+    This is necessary to address the BC-breaking change introduced
+    by the bug-fix at pytorch/vision#2933. The overwrite is applied
+    only when the pretrained weights are loaded to maintain compatibility
+    with previous versions.
+
+    Args:
+        model (nn.Module): The model on which we perform the overwrite.
+        eps (float): The new value of eps.
+    """
+    for module in model.modules():
+        if isinstance(module, FrozenBatchNorm2d):
+            module.eps = eps
 
 class KeypointRCNN(FasterRCNN):
     """
@@ -331,6 +345,9 @@ def keypointrcnn_resnet50_fpn(pretrained=False, progress=True,
         pretrained_backbone = False
     backbone = resnet_fpn_backbone('resnet50', pretrained_backbone, trainable_layers=trainable_backbone_layers)
     model = KeypointRCNN(backbone, num_classes, num_keypoints=num_keypoints, **kwargs)
+    print(model.transform)
+    print("backbone", backbone)
+    exit()
     if pretrained:
         key = 'keypointrcnn_resnet50_fpn_coco'
         if pretrained == 'legacy':
@@ -340,3 +357,15 @@ def keypointrcnn_resnet50_fpn(pretrained=False, progress=True,
         model.load_state_dict(state_dict)
         overwrite_eps(model, 0.0)
     return model
+
+if __name__ == "__main__":
+    from torchvision.models import resnet
+    from torchvision.ops import misc as misc_nn_ops
+
+    backbone = resnet.__dict__["resnet50"](
+        pretrained=False,
+        norm_layer=misc_nn_ops.FrozenBatchNorm2d)
+    print(backbone)
+    exit()
+
+    model = keypointrcnn_resnet50_fpn(num_classes=2, pretrained=False, num_keypoints=6)

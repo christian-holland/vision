@@ -17,10 +17,10 @@ Also, if you train Keypoint R-CNN, the default hyperparameters are
 Because the number of images is smaller in the person keypoint subset of COCO,
 the number of epochs should be adapted so that we have the same number of iterations.
 """
-import datetime
+
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import torch
 import torch.utils.data
@@ -33,16 +33,19 @@ from coco_utils import get_coco, get_coco_kp, get_forklift, get_forklift_kp
 from transforms import AlbumentationTransforms
 from group_by_aspect_ratio import GroupedBatchSampler, create_aspect_ratio_groups
 from engine import train_one_epoch, evaluate
-
+from constanz import NUM_KPS, DATASET
 import utils
 import transforms as T
+
+from custom_models.keypoint_rcnn import keypointrcnn_resnet50_fpn
 
 
 def get_transform(train):
     if train:
         return T.Compose([
-            # AlbumentationTransforms(),
+            AlbumentationTransforms(),
             T.ToTensor(),
+            # torchvision.transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
             T.RandomHorizontalFlip(0.5),
         ])
     else:
@@ -112,11 +115,12 @@ def main(args):
     print("Creating model")
     kwargs = {}
     if "keypoint" in args.model:
-        kwargs["num_keypoints"] = 6
+        kwargs["num_keypoints"] = NUM_KPS
     # if "rcnn" in args.model:
     #     kwargs["rpn_score_thresh"] = 0.0
-    model = torchvision.models.detection.__dict__[args.model](num_classes=num_classes, pretrained=args.pretrained,
-                                                              **kwargs)
+    # model = torchvision.models.detection.__dict__[args.model](num_classes=num_classes, pretrained=args.pretrained, **kwargs)
+
+    model = keypointrcnn_resnet50_fpn(num_classes=num_classes, pretrained=args.pretrained, **kwargs)
     model.to(device)
 
     model_without_ddp = model
@@ -129,7 +133,7 @@ def main(args):
         params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
     # lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step_size, gamma=args.lr_gamma)
-    lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_steps, gamma=args.lr_gamma)
+    lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[args.epochs-5, args.epochs-2], gamma=args.lr_gamma)
 
     if args.resume:
         checkpoint = torch.load(args.resume, map_location='cpu')
@@ -143,7 +147,7 @@ def main(args):
         return
 
     now = datetime.now()
-    train_run_folder = "runs/{}".format(now.strftime("%Y_%M_%S %H:%M:%S"))
+    train_run_folder = "runs/{}".format(now.strftime("%Y_%m_%d %H:%M:%S"))
     os.makedirs(train_run_folder)
     # train_writer = SummaryWriter(os.path.join(train_run_folder, "train"))
     val_writer = SummaryWriter(os.path.join(train_run_folder, "val"))
@@ -176,7 +180,7 @@ def main(args):
 
 
     total_time = time.time() - start_time
-    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    total_time_str = str(timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))
 
 
@@ -185,26 +189,26 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description=__doc__)
 
-    parser.add_argument('--data-path', default='/datasets01/COCO/022719/', help='dataset')
+    #parser.add_argument('--data-path', default='/home/logi/datasets/forklift_coco', help='dataset')
+    parser.add_argument('--data-path', default='/home/logi/datasets/faurecia_coco', help='dataset')
     parser.add_argument('--dataset', default='forklift_kp', help='dataset')
-    parser.add_argument('--model', default='maskrcnn_resnet50_fpn', help='model')
+    parser.add_argument('--model', default='keypointrcnn_resnet50_fpn', help='model')
     parser.add_argument('--device', default='cuda', help='device')
     parser.add_argument('-b', '--batch-size', default=4, type=int,
                         help='images per gpu, the total batch size is $NGPU x batch_size')
-    parser.add_argument('--epochs', default=100, type=int, metavar='N',
+    parser.add_argument('--epochs', default=400, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                         help='number of data loading workers (default: 4)')
     parser.add_argument('--lr', default=0.001, type=float,
                         help='initial learning rate, 0.02 is the default value for training '
-                        'on 8 gpus and 2 images_per_gpu')
+                        'on 8 gpus and 2 image_per_gpu')
     parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                         help='momentum')
     parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
                         metavar='W', help='weight decay (default: 1e-4)',
                         dest='weight_decay')
-    parser.add_argument('--lr-step-size', default=8, type=int, help='decrease lr every step-size epochs')
-    parser.add_argument('--lr-steps', default=[95, 98], nargs='+', type=int, help='decrease lr every step-size epochs')
+    # parser.add_argument('--lr-steps', default=[295, 298], nargs='+', type=int, help='decrease lr every step-size epochs')
     parser.add_argument('--lr-gamma', default=0.1, type=float, help='decrease lr by a factor of lr-gamma')
     parser.add_argument('--print-freq', default=20, type=int, help='print frequency')
     parser.add_argument('--output-dir', default='.', help='path where to save')

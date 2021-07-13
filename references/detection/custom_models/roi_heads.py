@@ -698,7 +698,6 @@ class RoIHeads(nn.Module):
             boxes = boxes.reshape(-1, 4)
             scores = scores.reshape(-1)
             labels = labels.reshape(-1)
-
             # remove low scoring boxes
             inds = torch.where(scores > self.score_thresh)[0]
             boxes, scores, labels = boxes[inds], scores[inds], labels[inds]
@@ -733,6 +732,7 @@ class RoIHeads(nn.Module):
             image_shapes (List[Tuple[H, W]])
             targets (List[Dict])
         """
+        # features["0"] = torch.abs(features["0"])
         if targets is not None:
             for t in targets:
                 # TODO: https://github.com/pytorch/pytorch/issues/26731
@@ -748,7 +748,6 @@ class RoIHeads(nn.Module):
             labels = None
             regression_targets = None
             matched_idxs = None
-
         box_features = self.box_roi_pool(features, proposals, image_shapes)
         box_features = self.box_head(box_features)
         class_logits, box_regression = self.box_predictor(box_features)
@@ -837,7 +836,6 @@ class RoIHeads(nn.Module):
                     pos_matched_idxs.append(matched_idxs[img_id][pos])
             else:
                 pos_matched_idxs = None
-
             keypoint_features = self.keypoint_roi_pool(features, keypoint_proposals, image_shapes)
             keypoint_features = self.keypoint_head(keypoint_features)
             keypoint_logits = self.keypoint_predictor(keypoint_features)

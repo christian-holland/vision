@@ -4,8 +4,11 @@ from torch import nn
 from torchvision.ops.feature_pyramid_network import FeaturePyramidNetwork, LastLevelMaxPool
 
 from torchvision.ops import misc as misc_nn_ops
-from .._utils import IntermediateLayerGetter
-from .. import resnet
+# from my_utils import IntermediateLayerGetter
+from torchvision.models._utils import IntermediateLayerGetter
+from torchvision.models import resnet
+# from .. import resnet
+
 
 
 class BackboneWithFPN(nn.Module):
@@ -85,7 +88,6 @@ def resnet_fpn_backbone(
     backbone = resnet.__dict__[backbone_name](
         pretrained=pretrained,
         norm_layer=norm_layer)
-
     # select layers that wont be frozen
     assert trainable_layers <= 5 and trainable_layers >= 0
     layers_to_train = ['layer4', 'layer3', 'layer2', 'layer1', 'conv1'][:trainable_layers]
@@ -105,6 +107,11 @@ def resnet_fpn_backbone(
     in_channels_stage2 = backbone.inplanes // 8
     in_channels_list = [in_channels_stage2 * 2 ** (i - 1) for i in returned_layers]
     out_channels = 256
+    # print("bb", backbone)
+    # print("rl", return_layers)
+    # print("ic", in_channels_list)
+    # print("oc", out_channels)
+    # print("eb", extra_blocks)
     return BackboneWithFPN(backbone, return_layers, in_channels_list, out_channels, extra_blocks=extra_blocks)
 
 

@@ -56,13 +56,13 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
 
 
 def _get_iou_types(model):
-    model_without_ddp = model
-    if isinstance(model, torch.nn.parallel.DistributedDataParallel):
-        model_without_ddp = model.module
+    model_type = type(model).__name__
+    if "DistributedDataParallel" in model_type:
+        model_type = type(model.module).__name__
     iou_types = ["bbox"]
-    if isinstance(model_without_ddp, torchvision.models.detection.MaskRCNN):
+    if "MaskRCNN" in model_type:
         iou_types.append("segm")
-    if isinstance(model_without_ddp, torchvision.models.detection.KeypointRCNN):
+    if "KeypointRCNN" in model_type:
         iou_types.append("keypoints")
     return iou_types
 
